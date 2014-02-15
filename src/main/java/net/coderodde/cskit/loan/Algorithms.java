@@ -2,9 +2,12 @@ package net.coderodde.cskit.loan;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * This class implements the loan simplification algorithms.
@@ -37,6 +40,15 @@ public class Algorithms {
             @Override
             public List<Node> exec(List<Node> nodeList) {
                 return permutationalSimplify(nodeList);
+            }
+        };
+    }
+
+    public static Algorithm partitionalSimplify() {
+        return new Algorithm("partitionalSimplify") {
+            @Override
+            public List<Node> exec(List<Node> nodeList) {
+                return partitionalSimplify(nodeList);
             }
         };
     }
@@ -250,6 +262,183 @@ public class Algorithms {
         return resultNodeList;
     }
 
+    private static final List<Node> partitionalSimplify(List<Node> nodeList) {
+        List<Node> positiveNodes = new ArrayList<Node>(nodeList.size());
+        List<Node> negativeNodes = new ArrayList<Node>(nodeList.size());
+        List<Node> resultNodeList = new ArrayList<Node>(nodeList.size());
+
+        for (Node node : nodeList) {
+            if (node.getEquity() > 0L) {
+                positiveNodes.add(node);
+            } else if (node.getEquity() < 0L) {
+                negativeNodes.add(node);
+            } else {
+                resultNodeList.add(new Node(node));
+            }
+        }
+
+        int bestEdgeAmount = Integer.MAX_VALUE;
+        List<Integer>[] bestPositivePartition = null;
+        List<Integer>[] bestNegativePartition = null;
+
+        PartitionGenerator pospg = new PartitionGenerator(positiveNodes.size());
+
+        do {
+            PartitionGenerator negpg =
+                    new PartitionGenerator(negativeNodes.size());
+
+            int[] positiveIndices = pospg.getIndices();
+            List<Integer>[] positivePartition = loadPartition(positiveIndices);
+
+            do {
+                int[] negativeIndices = negpg.getIndices();
+                List<Integer>[] negativePartition =
+                        loadPartition(negativeIndices);
+
+                int edges = countEdgesFromPartitions(positiveNodes,
+                                                     negativeNodes,
+                                                     positivePartition,
+                                                     negativePartition);
+
+                if (bestEdgeAmount > edges) {
+                    bestEdgeAmount = edges;
+                    bestPositivePartition = copyPartitions(positivePartition);
+                    bestNegativePartition = copyPartitions(negativePartition);
+                }
+
+            } while (negpg.inc());
+        } while (pospg.inc());
+
+        List<List<Node>> positivePartitions =
+                loadNodePartition(positiveNodes, bestPositivePartition);
+
+        List<List<Node>> negativePartitions =
+                loadNodePartition(negativeNodes, bestNegativePartition);
+
+        for (int i = 0; i < positivePartitions.size(); ++i) {
+            resultNodeList.addAll(link(positivePartitions.get(i),
+                                       negativePartitions.get(i)));
+        }
+
+        return resultNodeList;
+    }
+
+    private static final List<List<Node>>
+            loadNodePartition(List<Node> nodeList, List<Integer>[] indexList) {
+        List<List<Node>> list = new ArrayList<List<Node>>(indexList.length);
+
+        for (List<Integer> indices : indexList) {
+            List<Node> tmp = new ArrayList<Node>(indices.size());
+
+            for (Integer i : indices) {
+                tmp.add(nodeList.get(i));
+            }
+
+            list.add(tmp);
+        }
+
+        return list;
+    }
+
+    private static final List<Integer>[]
+            copyPartitions(List<Integer>[] partition) {
+        List<Integer>[] ret = new List[partition.length];
+        int i = 0;
+
+        for (List<Integer> list : partition) {
+            ret[i++] = new ArrayList<Integer>(list);
+        }
+
+        return ret;
+    }
+
+    private static final int countEdgesFromPartitions(
+            List<Node> positiveNodes,
+            List<Node> negativeNodes,
+            List<Integer>[] positivePartition,
+            List<Integer>[] negativePartition) {
+        if (positivePartition.length != negativePartition.length) {
+            return Integer.MAX_VALUE;
+        }
+
+        Arrays.sort(positivePartition, new BlockComparator(positiveNodes));
+        Arrays.sort(negativePartition, new BlockComparator(negativeNodes));
+
+        for (int i = 0; i < positivePartition.length; ++i) {
+            if (sumEquities(positiveNodes, positivePartition[i])
+                    != -sumEquities(negativeNodes, negativePartition[i])) {
+                return Integer.MAX_VALUE;
+            }
+        }
+
+        return positiveNodes.size() +
+               negativeNodes.size() -
+               positivePartition.length;
+    }
+
+    private static final long sumEquities(List<Node> nodeList,
+                                          List<Integer> indices) {
+        long sum = 0L;
+
+        for (Integer i : indices) {
+            sum += nodeList.get(i).getEquity();
+        }
+
+        return sum;
+    }
+
+    private static final class BlockComparator
+    implements Comparator<List<Integer>> {
+        private Node[] nodes;
+
+        public BlockComparator(List<Node> nodes) {
+            this.nodes = new Node[nodes.size()];
+
+            int index = 0;
+
+            for (Node node : nodes) {
+                this.nodes[index++] = node;
+            }
+        }
+
+        public int compare(List<Integer> o1, List<Integer> o2) {
+            long e1 = 0L;
+            long e2 = 0L;
+
+            for (Integer i : o1) {
+                e1 += Math.abs(nodes[i].getEquity());
+            }
+
+            for (Integer i : o2) {
+                e2 += Math.abs(nodes[i].getEquity());
+            }
+
+            return e1 < e2 ? -1 : (e1 > e2 ? 1 : 0);
+        }
+    }
+
+    private static final List<Integer>[] loadPartition(int[] indices) {
+        Set<Integer> set = new HashSet<Integer>(indices.length);
+
+        for (int index : indices) {
+            set.add(index);
+        }
+
+        List<Integer>[] ret = new List[set.size()];
+
+        for (int i = 0; i < set.size(); ++i) {
+            ret[i] = new ArrayList<Integer>();
+        }
+
+        int i = 0;
+
+        for (int index : indices) {
+            ret[index].add(i++);
+        }
+
+        return ret;
+    }
+
     private static final int countLinkageEdges(Node[] positiveNodes,
                                                Node[] negativeNodes) {
         int pi = 0;
@@ -442,5 +631,35 @@ public class Algorithms {
         }
 
         return -sum;
+    }
+
+    public static final void testS() {
+        long sum = 0L;
+
+        for (long l = 1; l <= 6; ++l) {
+            sum += S(10, l);
+        }
+
+        System.out.println(sum);
+
+        sum = 0L;
+
+        for (long l = 1; l <= 6; ++l) {
+            sum += S(6, l);
+        }
+
+        System.out.println(sum);
+    }
+
+    private static final long S(long n, long k) {
+        if (k == 1L) {
+            return 1L;
+        }
+
+        if (k == n) {
+            return 1L;
+        }
+
+        return S(n - 1, k - 1) + k * S(n - 1, k);
     }
 }

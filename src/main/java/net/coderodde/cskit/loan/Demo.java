@@ -13,8 +13,9 @@ import java.util.Random;
 public class Demo {
 
     public static void main(String... args) {
+        Algorithms.testS();
         final long SEED = System.currentTimeMillis(); //1392045592989L; //System.currentTimeMillis();
-        final int N = 12;
+        final int N = 14;
 
         System.out.println("Seed: " + SEED);
         System.out.println("Amount of nodes in the input graphs: " + N);
@@ -25,6 +26,7 @@ public class Demo {
         profile(Algorithms.linearSimplify(), nodeList);
         profile(Algorithms.greedyCombinatorialSimplify(), nodeList);
         profile(Algorithms.permutationalSimplify(), nodeList);
+        profile(Algorithms.partitionalSimplify(), nodeList);
     }
 
     private static final void profile(final Algorithm algorithm,
