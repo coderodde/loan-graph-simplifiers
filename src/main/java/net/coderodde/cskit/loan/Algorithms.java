@@ -277,6 +277,8 @@ public class Algorithms {
             }
         }
 
+        int jj = 3;
+
         int bestEdgeAmount = Integer.MAX_VALUE;
         List<Integer>[] bestPositivePartition = null;
         List<Integer>[] bestNegativePartition = null;
