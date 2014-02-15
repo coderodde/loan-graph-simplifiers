@@ -25,8 +25,8 @@ public class Demo {
 
         profile(Algorithms.linearSimplify(), nodeList);
         profile(Algorithms.greedyCombinatorialSimplify(), nodeList);
-        profile(Algorithms.permutationalSimplify(), nodeList);
         profile(Algorithms.partitionalSimplify(), nodeList);
+        profile(Algorithms.permutationalSimplify(), nodeList);
     }
 
     private static final void profile(final Algorithm algorithm,
